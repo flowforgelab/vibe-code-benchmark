@@ -13,7 +13,27 @@ const presets = [
     label: "Pulse",
     path: "/Users/greg/dev/pulse",
     command: "npm run build && npm run typecheck && npm run test:unit",
+    expectedOrigin: "github.com/Flow-Forge-Lab-Team/pulse",
+    pullBranch: "main",
     note: "Best day-to-day Next.js/Vitest/TypeScript benchmark.",
+  },
+  {
+    id: "hermes-agent",
+    label: "Hermes Agent fork",
+    path: "/Users/greg/dev/hermes-agent",
+    command: "uv run pytest tests/ -q --ignore=tests/integration --ignore=tests/e2e --tb=short -n auto",
+    expectedOrigin: "github.com/flowforgelab/hermes-agent",
+    pullBranch: "main",
+    note: "Your fork of NousResearch/hermes-agent. Pulls from flowforgelab/hermes-agent main.",
+  },
+  {
+    id: "openclaw",
+    label: "OpenClaw fork",
+    path: "/Users/greg/dev/openclaw",
+    command: "pnpm test",
+    expectedOrigin: "github.com/flowforgelab/openclaw",
+    pullBranch: "main",
+    note: "Your fork of openclaw/openclaw. Clone it to this path on each machine before running.",
   },
   {
     id: "webpage-redesigner",
@@ -102,6 +122,8 @@ const resolveJob = (body) => {
   return { repoPath, command };
 };
 
+const shellQuote = (value) => `'${String(value).replaceAll("'", "'\\''")}'`;
+
 const runCommand = ({ repoPath, command, mode }) =>
   new Promise((resolveRun) => {
     if (activeRun) {
@@ -137,8 +159,23 @@ const runCommand = ({ repoPath, command, mode }) =>
     });
   });
 
-const pullCommand =
-  'test -z "$(git status --porcelain)" || (echo "Worktree has local changes; commit, stash, or clean them before pulling." && git status --short && exit 2); git fetch --prune && git pull --ff-only';
+const buildPullCommand = (preset) => {
+  const remoteCheck = preset?.expectedOrigin
+    ? `expected_origin=${shellQuote(preset.expectedOrigin)}; origin_url="$(git remote get-url origin)"; case "$origin_url" in *"$expected_origin"*) ;; *) echo "Origin remote is $origin_url"; echo "Expected origin to contain $expected_origin"; exit 3 ;; esac`
+    : "";
+  const pull = preset?.pullBranch
+    ? `git pull --ff-only origin ${shellQuote(preset.pullBranch)}`
+    : "git pull --ff-only";
+
+  return [
+    'test -z "$(git status --porcelain)" || (echo "Worktree has local changes; commit, stash, or clean them before pulling." && git status --short && exit 2)',
+    remoteCheck,
+    preset ? "git fetch --prune origin" : "git fetch --prune",
+    pull,
+  ]
+    .filter(Boolean)
+    .join("; ");
+};
 
 const serveStatic = async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host}`);
@@ -183,6 +220,8 @@ const server = createServer(async (request, response) => {
 
     if (request.method === "POST" && request.url === "/api/pull") {
       const body = JSON.parse(await readBody(request));
+      const preset = presetById(body.presetId);
+      const pullCommand = buildPullCommand(preset);
       const job = resolveJob({ ...body, command: pullCommand });
       const result = await runCommand({ ...job, command: pullCommand, mode: "pull" });
       json(response, 200, result);
