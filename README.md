@@ -21,5 +21,5 @@ Then open `http://127.0.0.1:4317`.
 
 ## Fork presets
 
-- Hermes Agent fork: `/Users/greg/dev/hermes-agent`, expected origin `github.com/flowforgelab/hermes-agent`.
+- Hermes Agent fork: `/Users/greg/dev/hermes-agent`, expected origin `github.com/flowforgelab/hermes-agent`. The preset uses `uv run --extra dev` so pytest-xdist is available for `-n auto`.
 - OpenClaw fork: `/Users/greg/dev/openclaw`, expected origin `github.com/flowforgelab/openclaw`.

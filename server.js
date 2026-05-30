@@ -21,7 +21,7 @@ const presets = [
     id: "hermes-agent",
     label: "Hermes Agent fork",
     path: "/Users/greg/dev/hermes-agent",
-    command: "uv run pytest tests/ -q --ignore=tests/integration --ignore=tests/e2e --tb=short -n auto",
+    command: "uv run --extra dev pytest tests/ -q --ignore=tests/integration --ignore=tests/e2e --tb=short -n auto",
     expectedOrigin: "github.com/flowforgelab/hermes-agent",
     pullBranch: "main",
     note: "Your fork of NousResearch/hermes-agent. Pulls from flowforgelab/hermes-agent main.",
