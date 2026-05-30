@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vibe Benchmark Tool</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="header">
+        <div>
+          <h1>Vibe Benchmark Tool</h1>
+          <p>Pull a repo to the latest fast-forward commit, then time the selected test/build command.</p>
+        </div>
+        <div class="status" id="status">Idle</div>
+      </section>
+
+      <section class="panel">
+        <label for="preset">Repo preset</label>
+        <select id="preset"></select>
+
+        <label for="repoPath">Repo path</label>
+        <input id="repoPath" spellcheck="false" />
+
+        <label for="command">Benchmark command</label>
+        <textarea id="command" spellcheck="false" rows="4"></textarea>
+
+        <p class="note" id="note"></p>
+
+        <div class="actions">
+          <button id="pullButton" type="button">Pull latest</button>
+          <button id="runButton" type="button">Start benchmark</button>
+        </div>
+      </section>
+
+      <section class="metrics">
+        <div>
+          <span>Last pull</span>
+          <strong id="pullTime">-</strong>
+        </div>
+        <div>
+          <span>Benchmark time</span>
+          <strong id="runTime">-</strong>
+        </div>
+        <div>
+          <span>Exit code</span>
+          <strong id="exitCode">-</strong>
+        </div>
+      </section>
+
+      <section class="outputWrap">
+        <div class="outputHeader">
+          <h2>Output</h2>
+          <button id="clearButton" type="button">Clear</button>
+        </div>
+        <pre id="output"></pre>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
