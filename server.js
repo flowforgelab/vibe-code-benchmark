@@ -21,10 +21,10 @@ const presets = [
     id: "hermes-agent",
     label: "Hermes Agent fork",
     path: "/Users/greg/dev/hermes-agent",
-    command: "uv run --extra dev pytest tests/ -q --ignore=tests/integration --ignore=tests/e2e --tb=short -n auto",
+    command: "taskpolicy -a env HERMES_TEST_WORKERS=10 scripts/run_tests.sh -q --tb=short",
     expectedOrigin: "github.com/flowforgelab/hermes-agent",
     pullBranch: "main",
-    note: "Your fork of NousResearch/hermes-agent. Pulls from flowforgelab/hermes-agent main.",
+    note: "Your fork of NousResearch/hermes-agent. Uses the repo test wrapper with 10 workers for local benchmarking.",
   },
   {
     id: "openclaw",
@@ -80,6 +80,7 @@ const presets = [
 ];
 
 let activeRun = null;
+let lastRun = null;
 
 const json = (response, status, body) => {
   response.writeHead(status, {
@@ -138,7 +139,7 @@ const runCommand = ({ repoPath, command, mode }) =>
       env: { ...process.env, FORCE_COLOR: "0", CI: process.env.CI || "1" },
     });
 
-    activeRun = { child, mode, repoPath, command };
+    activeRun = { child, mode, repoPath, command, startedAt, lines };
 
     const append = (chunk) => {
       lines.push(chunk.toString());
@@ -149,6 +150,14 @@ const runCommand = ({ repoPath, command, mode }) =>
 
     child.on("close", (code) => {
       const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+      lastRun = {
+        mode,
+        repoPath,
+        command,
+        code,
+        elapsedMs,
+        output: lines.join("").trim(),
+      };
       activeRun = null;
       resolveRun({
         ok: code === 0,
@@ -168,13 +177,31 @@ const buildPullCommand = (preset) => {
     : "git pull --ff-only";
 
   return [
-    'test -z "$(git status --porcelain)" || (echo "Worktree has local changes; commit, stash, or clean them before pulling." && git status --short && exit 2)',
+    'if [ -n "$(git status --porcelain)" ]; then echo "Worktree has local changes; commit, stash, or clean them before pulling."; git status --short; exit 2; fi',
     remoteCheck,
     preset ? "git fetch --prune origin" : "git fetch --prune",
     pull,
   ]
     .filter(Boolean)
     .join("; ");
+};
+
+const runStatus = () => {
+  if (activeRun) {
+    return {
+      active: true,
+      mode: activeRun.mode,
+      repoPath: activeRun.repoPath,
+      command: activeRun.command,
+      elapsedMs: Number(process.hrtime.bigint() - activeRun.startedAt) / 1_000_000,
+      output: activeRun.lines.join("").trim(),
+    };
+  }
+
+  return {
+    active: false,
+    lastRun,
+  };
 };
 
 const serveStatic = async (request, response) => {
@@ -215,6 +242,11 @@ const server = createServer(async (request, response) => {
           }
         : null;
       json(response, 200, { presets, activeRun: run });
+      return;
+    }
+
+    if (request.method === "GET" && request.url === "/api/run-status") {
+      json(response, 200, runStatus());
       return;
     }
 

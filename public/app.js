@@ -12,6 +12,7 @@ const runTime = document.querySelector("#runTime");
 const exitCode = document.querySelector("#exitCode");
 
 let presets = [];
+let statusPoll = null;
 
 const formatDuration = (ms) => {
   if (!Number.isFinite(ms)) return "-";
@@ -30,6 +31,41 @@ const setBusy = (busy, label = "Idle") => {
 const appendOutput = (text) => {
   output.textContent = text || "(no output)";
   output.scrollTop = output.scrollHeight;
+};
+
+const stopPolling = () => {
+  if (!statusPoll) return;
+  clearInterval(statusPoll);
+  statusPoll = null;
+};
+
+const updateLiveStatus = async () => {
+  const response = await fetch("/api/run-status");
+  const payload = await response.json();
+
+  if (payload.active) {
+    status.textContent = payload.mode === "pull" ? "Pulling" : "Running";
+    if (payload.mode === "pull") {
+      pullTime.textContent = formatDuration(payload.elapsedMs);
+    } else {
+      runTime.textContent = formatDuration(payload.elapsedMs);
+    }
+    if (payload.output) {
+      appendOutput(payload.output);
+    }
+    return;
+  }
+
+  stopPolling();
+};
+
+const startPolling = () => {
+  stopPolling();
+  statusPoll = setInterval(() => {
+    updateLiveStatus().catch(() => {
+      stopPolling();
+    });
+  }, 1000);
 };
 
 const selectedPayload = () => ({
@@ -83,6 +119,7 @@ pullButton.addEventListener("click", async () => {
   appendOutput("Pulling latest with git fetch --prune && git pull --ff-only...");
 
   try {
+    startPolling();
     const result = await requestJson("/api/pull", selectedPayload());
     pullTime.textContent = formatDuration(result.elapsedMs);
     exitCode.textContent = String(result.code);
@@ -92,6 +129,7 @@ pullButton.addEventListener("click", async () => {
     status.textContent = "Failed";
     appendOutput(error.message);
   } finally {
+    stopPolling();
     setBusy(false, status.textContent);
   }
 });
@@ -103,6 +141,7 @@ runButton.addEventListener("click", async () => {
   appendOutput(`Running:\n${command.value.trim()}`);
 
   try {
+    startPolling();
     const result = await requestJson("/api/run", selectedPayload());
     runTime.textContent = formatDuration(result.elapsedMs);
     exitCode.textContent = String(result.code);
@@ -112,6 +151,7 @@ runButton.addEventListener("click", async () => {
     status.textContent = "Failed";
     appendOutput(error.message);
   } finally {
+    stopPolling();
     setBusy(false, status.textContent);
   }
 });
